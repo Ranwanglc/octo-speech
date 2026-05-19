@@ -82,11 +82,10 @@ func main() {
 
 	auth := api.AuthMiddleware(appStore)
 
-	r.GET("/v1/speech/config", configHandler.Handle)
-
 	protected := r.Group("/v1/speech")
 	protected.Use(auth)
 	{
+		protected.GET("/config", configHandler.Handle)
 		protected.POST("/transcribe", transcribeHandler.Handle)
 		protected.PUT("/vocabularies", vocabHandler.Put)
 		protected.GET("/vocabularies", vocabHandler.Get)
