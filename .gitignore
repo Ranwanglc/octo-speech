@@ -1,0 +1,12 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Build
+octo-speech
+*.exe
+
+# OS
+.DS_Store
+Thumbs.db
