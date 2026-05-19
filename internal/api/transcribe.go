@@ -1,10 +1,13 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -87,6 +90,15 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 	modelParam := c.PostForm("model")
 	emotionParam := c.PostForm("emotion_emoji")
 
+	if channelType != "" && channelType != "dm" && channelType != "group" && channelType != "1" && channelType != "2" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":     http.StatusBadRequest,
+			"msg":        "invalid channel_type, expected: dm, group, 1, 2",
+			"request_id": requestID,
+		})
+		return
+	}
+
 	contextText = config.TruncateRunesTail(contextText, h.cfg.MaxContextTextLength)
 	chatContext = config.TruncateRunesTail(chatContext, h.cfg.MaxChatContextLength)
 	personalContext = config.TruncateRunesTail(personalContext, h.cfg.MaxVoiceContextLength)
@@ -115,6 +127,15 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	if opts.Mode == "edit_only" && contextText == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":     http.StatusBadRequest,
+			"msg":        "edit_only mode requires context_text",
+			"request_id": requestID,
+		})
+		return
 	}
 
 	if engineParam != "" {
@@ -205,10 +226,6 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 		}
 
 		statusCode := http.StatusInternalServerError
-		var ae *service.APIError
-		if ok := isAPIError(err, &ae); ok && ae != nil {
-			statusCode = ae.StatusCode
-		}
 
 		h.logger.Error("transcribe failed",
 			zap.String("request_id", requestID),
@@ -217,7 +234,7 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 
 		c.JSON(statusCode, gin.H{
 			"status":     statusCode,
-			"msg":        "transcription failed",
+			"msg":        classifyTranscribeError(err),
 			"request_id": requestID,
 		})
 		return
@@ -234,17 +251,16 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 	})
 }
 
-func isAPIError(err error, target **service.APIError) bool {
-	for err != nil {
-		if ae, ok := err.(*service.APIError); ok {
-			*target = ae
-			return true
-		}
-		if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
-			err = unwrapper.Unwrap()
-		} else {
-			break
-		}
+func classifyTranscribeError(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "transcription failed: timeout"
 	}
-	return false
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
+			return "transcription failed: timeout"
+		}
+		return "transcription failed: service unavailable"
+	}
+	return "transcription failed"
 }

@@ -71,7 +71,11 @@ func (h *VocabularyHandler) Put(c *gin.Context) {
 	}
 
 	if req.UpdatedBy == "" {
-		req.UpdatedBy = appIDStr
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": http.StatusBadRequest,
+			"msg":    "updated_by is required",
+		})
+		return
 	}
 
 	if err := h.vocabStore.Upsert(appIDStr, req.SubjectID, req.ScopeType, req.ScopeID, req.Content, req.UpdatedBy); err != nil {
@@ -100,6 +104,14 @@ func (h *VocabularyHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status": http.StatusBadRequest,
 			"msg":    "subject_id is required",
+		})
+		return
+	}
+
+	if (scopeType == "") != (scopeID == "") {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": http.StatusBadRequest,
+			"msg":    "scope_type and scope_id must be provided together",
 		})
 		return
 	}
@@ -154,12 +166,27 @@ func (h *VocabularyHandler) Delete(c *gin.Context) {
 	scopeType := c.Query("scope_type")
 	scopeID := c.Query("scope_id")
 
-	if subjectID == "" || scopeType == "" || scopeID == "" {
+	if subjectID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status": http.StatusBadRequest,
-			"msg":    "subject_id, scope_type, and scope_id are required",
+			"msg":    "subject_id is required",
 		})
 		return
+	}
+
+	if (scopeType == "") != (scopeID == "") {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": http.StatusBadRequest,
+			"msg":    "scope_type and scope_id must be provided together",
+		})
+		return
+	}
+
+	if scopeType == "" {
+		scopeType = "global"
+	}
+	if scopeID == "" {
+		scopeID = "default"
 	}
 
 	if !store.IsValidScopeType(scopeType) {
