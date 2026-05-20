@@ -344,3 +344,33 @@ func TestCSRFMiddleware_Match(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 }
+
+func TestCSRFMiddleware_ConstantTimeCompare(t *testing.T) {
+	r := gin.New()
+	r.Use(CSRFMiddleware())
+	r.POST("/test", func(c *gin.Context) {
+		c.String(200, "ok")
+	})
+
+	token := "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/test", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: token})
+	req.Header.Set("X-CSRF-Token", token)
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Errorf("expected 200 for matching CSRF tokens, got %d", w.Code)
+	}
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/test", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: token})
+	req.Header.Set("X-CSRF-Token", token+"x")
+	r.ServeHTTP(w, req)
+
+	if w.Code != 403 {
+		t.Errorf("expected 403 for mismatched CSRF tokens, got %d", w.Code)
+	}
+}

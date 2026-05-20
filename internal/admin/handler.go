@@ -76,7 +76,13 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	if req.Username != h.cfg.Username || bcrypt.CompareHashAndPassword([]byte(h.cfg.PasswordHash), []byte(req.Password)) != nil {
+	if req.Username != h.cfg.Username {
+		bcrypt.CompareHashAndPassword([]byte("$2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), []byte(req.Password))
+		c.JSON(http.StatusUnauthorized, gin.H{"status": 401, "msg": "invalid credentials"})
+		return
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(h.cfg.PasswordHash), []byte(req.Password)) != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"status": 401, "msg": "invalid credentials"})
 		return
 	}

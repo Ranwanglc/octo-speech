@@ -45,8 +45,18 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 		requestID = fmt.Sprintf("nolog_%d_%s", time.Now().UnixMilli(), hex.EncodeToString(b))
 	}
 
+	const maxUploadSize = 5 * 1024 * 1024
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadSize)
+
 	file, header, err := c.Request.FormFile("audio")
 	if err != nil {
+		if err.Error() == "http: request body too large" {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"status": http.StatusRequestEntityTooLarge,
+				"msg":    "request body too large",
+			})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":     http.StatusBadRequest,
 			"msg":        "audio file is required",
@@ -152,6 +162,14 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 	}
 
 	if modelParam != "" {
+		if !h.isValidModel(modelParam) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":     http.StatusBadRequest,
+				"msg":        "unsupported model",
+				"request_id": requestID,
+			})
+			return
+		}
 		opts.Model = modelParam
 	}
 
@@ -249,6 +267,25 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 		"engine":     engineShort,
 		"request_id": requestID,
 	})
+}
+
+func (h *TranscribeHandler) isValidModel(model string) bool {
+	for _, m := range h.cfg.Models {
+		if m == model {
+			return true
+		}
+	}
+	for _, m := range h.cfg.GPTModels {
+		if m == model {
+			return true
+		}
+	}
+	for _, m := range h.cfg.QwenModels {
+		if m == model {
+			return true
+		}
+	}
+	return false
 }
 
 func classifyTranscribeError(err error) string {

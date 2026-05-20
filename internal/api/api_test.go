@@ -783,6 +783,137 @@ func (e *mockNetError) Error() string   { return "mock net error" }
 func (e *mockNetError) Timeout() bool   { return e.timeout }
 func (e *mockNetError) Temporary() bool { return false }
 
+func TestTranscribeHandler_RequestBodyTooLarge(t *testing.T) {
+	cfg := &config.Config{
+		MaxFileSize:            3145728,
+		EmotionEmoji:           true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("audio", "test.wav")
+	largeData := make([]byte, 6*1024*1024)
+	part.Write(largeData)
+	writer.Close()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("expected 413, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["msg"] != "request body too large" {
+		t.Errorf("unexpected msg: %v", resp["msg"])
+	}
+}
+
+func TestTranscribeHandler_InvalidModel(t *testing.T) {
+	cfg := &config.Config{
+		MaxFileSize:            3145728,
+		EmotionEmoji:           true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+		Models:                 []string{"gemini-2.5-pro"},
+		GPTModels:              []string{"gpt-4o-mini-transcribe"},
+		QwenModels:             []string{"qwen3.5-omni-plus"},
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("audio", "test.wav")
+	part.Write([]byte("fake audio"))
+	writer.WriteField("model", "malicious-model")
+	writer.Close()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid model, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["msg"] != "unsupported model" {
+		t.Errorf("unexpected msg: %v", resp["msg"])
+	}
+}
+
+func TestTranscribeHandler_ValidModel(t *testing.T) {
+	cfg := &config.Config{
+		MaxFileSize:            3145728,
+		EmotionEmoji:           true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+		Models:                 []string{"gemini-2.5-pro"},
+		GPTModels:              []string{"gpt-4o-mini-transcribe"},
+		QwenModels:             []string{"qwen3.5-omni-plus"},
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("audio", "test.wav")
+	part.Write([]byte("fake audio"))
+	writer.WriteField("model", "gemini-2.5-pro")
+	writer.Close()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	if w.Code == http.StatusBadRequest {
+		var resp map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if resp["msg"] == "unsupported model" {
+			t.Error("valid model should not be rejected")
+		}
+	}
+}
+
 func TestClassifyTranscribeError(t *testing.T) {
 	tests := []struct {
 		name string

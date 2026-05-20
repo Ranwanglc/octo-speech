@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +38,7 @@ func CSRFMiddleware() gin.HandlerFunc {
 		}
 
 		headerToken := c.GetHeader("X-CSRF-Token")
-		if headerToken == "" || headerToken != cookieToken {
+		if headerToken == "" || subtle.ConstantTimeCompare([]byte(headerToken), []byte(cookieToken)) != 1 {
 			c.JSON(http.StatusForbidden, gin.H{"status": 403, "msg": "CSRF token mismatch"})
 			c.Abort()
 			return

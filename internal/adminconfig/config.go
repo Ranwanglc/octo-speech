@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -20,6 +21,9 @@ type AdminConfig struct {
 	SecureCookie   bool
 	TrustedProxies []string
 	DBDsn          string
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	IdleTimeout    time.Duration
 }
 
 func LoadFromEnv(logger *zap.Logger) *AdminConfig {
@@ -76,6 +80,9 @@ func LoadFromEnv(logger *zap.Logger) *AdminConfig {
 		SecureCookie:   secureCookie,
 		TrustedProxies: trustedProxies,
 		DBDsn:          os.Getenv("SPEECH_DB_DSN"),
+		ReadTimeout:    parseDurationEnv("ADMIN_READ_TIMEOUT", 30*time.Second),
+		WriteTimeout:   parseDurationEnv("ADMIN_WRITE_TIMEOUT", 60*time.Second),
+		IdleTimeout:    parseDurationEnv("ADMIN_IDLE_TIMEOUT", 120*time.Second),
 	}
 }
 
@@ -85,4 +92,16 @@ func generateRandomSecret(n int, logger *zap.Logger) string {
 		logger.Fatal("CSPRNG failure")
 	}
 	return hex.EncodeToString(b)
+}
+
+func parseDurationEnv(key string, defaultVal time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d <= 0 {
+		return defaultVal
+	}
+	return d
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -78,6 +79,10 @@ type Config struct {
 
 	Hostname    string
 	FeedbackURL string
+
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
 }
 
 func LoadFromEnv(logger *zap.Logger) *Config {
@@ -115,6 +120,10 @@ func LoadFromEnv(logger *zap.Logger) *Config {
 
 		ASRLogBufferSize:    defaultLogBufSize,
 		ASRLogRetentionDays: defaultRetention,
+
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	cfg.DBDsn = os.Getenv("SPEECH_DB_DSN")
@@ -263,6 +272,22 @@ func LoadFromEnv(logger *zap.Logger) *Config {
 	if v := os.Getenv("ASR_LOG_RETENTION_DAYS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.ASRLogRetentionDays = n
+		}
+	}
+
+	if v := os.Getenv("SPEECH_READ_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.ReadTimeout = d
+		}
+	}
+	if v := os.Getenv("SPEECH_WRITE_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.WriteTimeout = d
+		}
+	}
+	if v := os.Getenv("SPEECH_IDLE_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			cfg.IdleTimeout = d
 		}
 	}
 
