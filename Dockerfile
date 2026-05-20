@@ -4,5 +4,6 @@ COPY . .
 RUN go build -o octo-speech ./cmd/speech
 
 FROM debian:bookworm-slim
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /app/octo-speech /usr/local/bin/
 ENTRYPOINT ["octo-speech"]
