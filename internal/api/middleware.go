@@ -31,7 +31,7 @@ func AuthMiddleware(appStore *store.AppStore) gin.HandlerFunc {
 			return
 		}
 
-		info, err := appStore.Authenticate(apiKey)
+		info, err := appStore.Authenticate(c.Request.Context(), apiKey)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": http.StatusInternalServerError,

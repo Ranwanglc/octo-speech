@@ -1,0 +1,11 @@
+FROM golang:1.22 AS builder
+WORKDIR /app
+COPY . .
+RUN CGO_ENABLED=0 go build -o octo-speech-admin ./cmd/admin
+
+FROM debian:bookworm-slim
+RUN useradd -u 10001 -r -s /bin/false appuser
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /app/octo-speech-admin /usr/local/bin/
+USER 10001
+ENTRYPOINT ["octo-speech-admin"]

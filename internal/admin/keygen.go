@@ -1,0 +1,46 @@
+package admin
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"math/big"
+)
+
+const base62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+var ErrCSPRNGFailure = errors.New("CSPRNG failure")
+
+func randomBase62(n int) (string, error) {
+	b := make([]byte, n)
+	for i := range b {
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(base62))))
+		if err != nil {
+			return "", ErrCSPRNGFailure
+		}
+		b[i] = base62[idx.Int64()]
+	}
+	return string(b), nil
+}
+
+func GenerateAppID() (string, error) {
+	suffix, err := randomBase62(16)
+	if err != nil {
+		return "", err
+	}
+	return "app_" + suffix, nil
+}
+
+func GenerateAPIKey() (string, error) {
+	suffix, err := randomBase62(29)
+	if err != nil {
+		return "", err
+	}
+	return "sk-" + suffix, nil
+}
+
+func hashAPIKey(apiKey string) string {
+	h := sha256.Sum256([]byte(apiKey))
+	return hex.EncodeToString(h[:])
+}
