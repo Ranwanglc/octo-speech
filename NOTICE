@@ -1,0 +1,22 @@
+OCTO Speech
+Copyright 2026 MININGLAMP Technology and the OCTO contributors
+
+See LICENSE for full license text.
+
+--------------------------------------------------------------------
+Third-party Go module dependencies requiring attribution
+--------------------------------------------------------------------
+
+The following direct dependencies are licensed under Apache 2.0:
+  - github.com/prometheus/client_golang
+
+The following direct dependencies use permissive licenses (MIT / BSD-2 / BSD-3 / ISC):
+  - github.com/gin-gonic/gin
+  - github.com/go-sql-driver/mysql
+  - github.com/golang-jwt/jwt/v5
+  - github.com/rubenv/sql-migrate
+  - go.uber.org/zap
+
+For the exhaustive module-by-module license inventory, run
+`go-licenses csv ./...` or inspect each upstream's LICENSE file
+via `go.sum`.
