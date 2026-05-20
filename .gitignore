@@ -11,5 +11,5 @@ octo-speech
 .DS_Store
 Thumbs.db
 
-admin
+/admin
 speech

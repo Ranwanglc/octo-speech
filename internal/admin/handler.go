@@ -125,8 +125,8 @@ func (h *Handler) ListApps(c *gin.Context) {
 			"app_id":     a.AppID,
 			"app_name":   a.AppName,
 			"status":     a.Status,
-			"created_at": a.CreatedAt,
-			"updated_at": a.UpdatedAt,
+			"created_at": a.CreatedAt.Format(time.RFC3339),
+			"updated_at": a.UpdatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -186,7 +186,7 @@ func (h *Handler) CreateApp(c *gin.Context) {
 		"app_id":     appID,
 		"app_name":   appName,
 		"api_key":    apiKey,
-		"created_at": now,
+		"created_at": now.Format(time.RFC3339),
 	})
 }
 
