@@ -292,8 +292,9 @@ func TestConfigHandler_FeedbackURL_Absent(t *testing.T) {
 
 func TestTranscribeHandler_MissingAudio(t *testing.T) {
 	cfg := &config.Config{
-		MaxFileSize:  3145728,
-		EmotionEmoji: true,
+		MaxUploadSize: 5 * 1024 * 1024,
+		MaxFileSize:   3145728,
+		EmotionEmoji:  true,
 	}
 
 	h := NewTranscribeHandler(nil, cfg, nil, nil)
@@ -317,6 +318,7 @@ func TestTranscribeHandler_MissingAudio(t *testing.T) {
 
 func TestTranscribeHandler_InvalidMode(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -353,6 +355,7 @@ func TestTranscribeHandler_InvalidMode(t *testing.T) {
 
 func TestTranscribeHandler_InvalidEngine(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -548,6 +551,7 @@ func TestVocabularyHandler_DeleteDefaultScope(t *testing.T) {
 
 func TestTranscribeHandler_EditOnlyWithoutContextText(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -590,6 +594,7 @@ func TestTranscribeHandler_EditOnlyWithoutContextText(t *testing.T) {
 
 func TestTranscribeHandler_InvalidChannelType(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -632,6 +637,7 @@ func TestTranscribeHandler_InvalidChannelType(t *testing.T) {
 
 func TestTranscribeHandler_ChannelTypeThread(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -725,6 +731,7 @@ func TestTranscribeHandler_ChannelTypeThread_SkipMentionFalse(t *testing.T) {
 			defer backend.Close()
 
 			cfg := &config.Config{
+				MaxUploadSize:          5 * 1024 * 1024,
 				MaxFileSize:            3145728,
 				EmotionEmoji:           true,
 				MaxContextTextLength:   5000,
@@ -788,6 +795,7 @@ func (e *mockNetError) Temporary() bool { return false }
 
 func TestTranscribeHandler_RequestBodyTooLarge(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -830,6 +838,7 @@ func TestTranscribeHandler_RequestBodyTooLarge(t *testing.T) {
 
 func TestTranscribeHandler_InvalidModel(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -875,6 +884,7 @@ func TestTranscribeHandler_InvalidModel(t *testing.T) {
 
 func TestTranscribeHandler_ValidModel(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		MaxContextTextLength:   5000,
@@ -941,6 +951,7 @@ func TestClassifyTranscribeError(t *testing.T) {
 
 func TestTranscribeHandler_AllowFeedback_InvalidValue(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		AllowFeedbackLog:       true,
@@ -989,6 +1000,7 @@ func TestTranscribeHandler_AllowFeedback_InvalidValue(t *testing.T) {
 
 func TestTranscribeHandler_AllowFeedback_ValidValues(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		AllowFeedbackLog:       true,
@@ -1036,6 +1048,7 @@ func TestTranscribeHandler_AllowFeedback_ValidValues(t *testing.T) {
 
 func TestTranscribeHandler_AllowFeedback_NotProvided(t *testing.T) {
 	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
 		MaxFileSize:            3145728,
 		EmotionEmoji:           true,
 		AllowFeedbackLog:       true,
@@ -1112,6 +1125,7 @@ func TestTranscribeHandler_AllowFeedback_LoggingBehavior(t *testing.T) {
 			defer asrLogger.Close()
 
 			cfg := &config.Config{
+				MaxUploadSize:          5 * 1024 * 1024,
 				MaxFileSize:            3145728,
 				EmotionEmoji:           true,
 				AllowFeedbackLog:       tt.allowFeedbackLog,
@@ -1175,5 +1189,85 @@ func TestTranscribeHandler_AllowFeedback_LoggingBehavior(t *testing.T) {
 				t.Error("expected no log files, but some were found")
 			}
 		})
+	}
+}
+
+func TestTranscribeHandler_RequestBodyWithinLimit(t *testing.T) {
+	cfg := &config.Config{
+		MaxUploadSize:          5 * 1024 * 1024,
+		MaxFileSize:            3 * 1024 * 1024,
+		EmotionEmoji:           true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("audio", "test.wav")
+	part.Write(make([]byte, 100))
+	writer.Close()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	if w.Code == http.StatusRequestEntityTooLarge {
+		t.Errorf("expected request within limit to not return 413, got %d", w.Code)
+	}
+}
+
+func TestTranscribeHandler_MaxUploadSize(t *testing.T) {
+	cfg := &config.Config{
+		MaxUploadSize:          1024,
+		MaxFileSize:            512,
+		EmotionEmoji:           true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("audio", "test.wav")
+	largeData := make([]byte, 2048)
+	part.Write(largeData)
+	writer.Close()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("expected 413, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["msg"] != "request body too large" {
+		t.Errorf("unexpected msg: %v", resp["msg"])
 	}
 }
