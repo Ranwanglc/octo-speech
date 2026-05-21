@@ -99,6 +99,7 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 	engineParam := c.PostForm("engine")
 	modelParam := c.PostForm("model")
 	emotionParam := c.PostForm("emotion_emoji")
+	allowFeedbackParam := c.PostForm("allow_feedback")
 
 	if channelType != "" && channelType != "dm" && channelType != "group" && channelType != "thread" && channelType != "1" && channelType != "2" && channelType != "5" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -180,6 +181,20 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 		}
 	}
 
+	shouldLog := h.cfg.AllowFeedbackLog
+	if allowFeedbackParam != "" {
+		b, err := strconv.ParseBool(allowFeedbackParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":     http.StatusBadRequest,
+				"msg":        "invalid allow_feedback value, expected: true or false",
+				"request_id": requestID,
+			})
+			return
+		}
+		shouldLog = b
+	}
+
 	result, err := h.svc.Transcribe(audioData, mimeType, contextText, vocabRef, opts)
 
 	duration := time.Since(startTime)
@@ -189,7 +204,7 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 		engine = opts.Engine
 	}
 
-	if h.asrLogger != nil {
+	if h.asrLogger != nil && shouldLog {
 		entry := asrlog.ASREntry{
 			RequestID:      requestID,
 			Timestamp:      startTime.UTC().Format(time.RFC3339Nano),
