@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mininglamp-OSS/octo-speech/internal/dsnutil"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -79,7 +80,7 @@ func LoadFromEnv(logger *zap.Logger) *AdminConfig {
 		TokenExpire:    tokenExpire,
 		SecureCookie:   secureCookie,
 		TrustedProxies: trustedProxies,
-		DBDsn:          os.Getenv("SPEECH_DB_DSN"),
+		DBDsn:          dsnutil.EnsureDSNTimeParams(os.Getenv("SPEECH_DB_DSN")),
 		ReadTimeout:    parseDurationEnv("ADMIN_READ_TIMEOUT", 30*time.Second),
 		WriteTimeout:   parseDurationEnv("ADMIN_WRITE_TIMEOUT", 60*time.Second),
 		IdleTimeout:    parseDurationEnv("ADMIN_IDLE_TIMEOUT", 120*time.Second),

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mininglamp-OSS/octo-speech/internal/dsnutil"
 	"go.uber.org/zap"
 )
 
@@ -126,7 +127,7 @@ func LoadFromEnv(logger *zap.Logger) *Config {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	cfg.DBDsn = os.Getenv("SPEECH_DB_DSN")
+	cfg.DBDsn = dsnutil.EnsureDSNTimeParams(os.Getenv("SPEECH_DB_DSN"))
 
 	if v := os.Getenv("SPEECH_SERVICE_PORT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
