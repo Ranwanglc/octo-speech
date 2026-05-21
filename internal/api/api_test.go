@@ -9,11 +9,14 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Mininglamp-OSS/octo-speech/internal/asrlog"
 	"github.com/Mininglamp-OSS/octo-speech/internal/config"
 	"github.com/Mininglamp-OSS/octo-speech/internal/service"
 	"github.com/Mininglamp-OSS/octo-speech/internal/store"
@@ -931,6 +934,245 @@ func TestClassifyTranscribeError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := classifyTranscribeError(tt.err); got != tt.want {
 				t.Errorf("classifyTranscribeError() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTranscribeHandler_AllowFeedback_InvalidValue(t *testing.T) {
+	cfg := &config.Config{
+		MaxFileSize:            3145728,
+		EmotionEmoji:           true,
+		AllowFeedbackLog:       true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	invalidValues := []string{"maybe", "yes", "no", "2", " "}
+	for _, val := range invalidValues {
+		t.Run("allow_feedback="+val, func(t *testing.T) {
+			var buf bytes.Buffer
+			writer := multipart.NewWriter(&buf)
+			part, _ := writer.CreateFormFile("audio", "test.wav")
+			part.Write([]byte("fake audio"))
+			writer.WriteField("allow_feedback", val)
+			writer.Close()
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("expected 400 for allow_feedback=%q, got %d: %s", val, w.Code, w.Body.String())
+			}
+
+			var resp map[string]interface{}
+			json.Unmarshal(w.Body.Bytes(), &resp)
+			if resp["msg"] != "invalid allow_feedback value, expected: true or false" {
+				t.Errorf("unexpected msg: %v", resp["msg"])
+			}
+		})
+	}
+}
+
+func TestTranscribeHandler_AllowFeedback_ValidValues(t *testing.T) {
+	cfg := &config.Config{
+		MaxFileSize:            3145728,
+		EmotionEmoji:           true,
+		AllowFeedbackLog:       true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	validValues := []string{"true", "false", "1", "0", "t", "f", "TRUE", "FALSE"}
+	for _, val := range validValues {
+		t.Run("allow_feedback="+val, func(t *testing.T) {
+			var buf bytes.Buffer
+			writer := multipart.NewWriter(&buf)
+			part, _ := writer.CreateFormFile("audio", "test.wav")
+			part.Write([]byte("fake audio"))
+			writer.WriteField("allow_feedback", val)
+			writer.Close()
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			r.ServeHTTP(w, req)
+
+			if w.Code == http.StatusBadRequest {
+				var resp map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &resp)
+				if resp["msg"] == "invalid allow_feedback value, expected: true or false" {
+					t.Errorf("valid allow_feedback=%q was rejected", val)
+				}
+			}
+		})
+	}
+}
+
+func TestTranscribeHandler_AllowFeedback_NotProvided(t *testing.T) {
+	cfg := &config.Config{
+		MaxFileSize:            3145728,
+		EmotionEmoji:           true,
+		AllowFeedbackLog:       true,
+		MaxContextTextLength:   5000,
+		MaxChatContextLength:   20000,
+		MaxVoiceContextLength:  10000,
+		MaxMemberContextLength: 5000,
+	}
+
+	h := NewTranscribeHandler(nil, cfg, nil, nil)
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		c.Set("app_id", "test-app")
+		c.Next()
+	})
+	r.POST("/v1/speech/transcribe", h.Handle)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("audio", "test.wav")
+	part.Write([]byte("fake audio"))
+	writer.Close()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	r.ServeHTTP(w, req)
+
+	if w.Code == http.StatusBadRequest {
+		var resp map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if resp["msg"] == "invalid allow_feedback value, expected: true or false" {
+			t.Error("missing allow_feedback should not cause 400")
+		}
+	}
+}
+
+func TestTranscribeHandler_AllowFeedback_LoggingBehavior(t *testing.T) {
+	service.ResetPromptsToDefaults()
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"content": "transcribed text"}},
+			},
+		})
+	}))
+	defer backend.Close()
+
+	tests := []struct {
+		name             string
+		allowFeedbackLog bool
+		paramValue       string
+		expectLogged     bool
+	}{
+		{"config=true, param=true", true, "true", true},
+		{"config=true, param=false", true, "false", false},
+		{"config=false, param=true", false, "true", true},
+		{"config=false, param=false", false, "false", false},
+		{"config=true, no param", true, "", true},
+		{"config=false, no param", false, "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logDir := t.TempDir()
+			asrLogger := asrlog.NewLogger(logDir, 256, "test-pod", nil)
+			if asrLogger == nil {
+				t.Fatal("failed to create asr logger")
+			}
+			defer asrLogger.Close()
+
+			cfg := &config.Config{
+				MaxFileSize:            3145728,
+				EmotionEmoji:           true,
+				AllowFeedbackLog:       tt.allowFeedbackLog,
+				MaxContextTextLength:   5000,
+				MaxChatContextLength:   20000,
+				MaxVoiceContextLength:  10000,
+				MaxMemberContextLength: 5000,
+				Engine:                 config.EngineGemini,
+				Models:                 []string{"test-model"},
+				LiteLLMUrl:             backend.URL,
+				LiteLLMKey:             "test-key",
+				Timeout:                10,
+				TotalTimeout:           15,
+			}
+
+			svc := service.NewTranscribeService(cfg)
+			h := NewTranscribeHandler(svc, cfg, asrLogger, nil)
+
+			r := gin.New()
+			r.Use(func(c *gin.Context) {
+				c.Set("app_id", "test-app")
+				c.Next()
+			})
+			r.POST("/v1/speech/transcribe", h.Handle)
+
+			var buf bytes.Buffer
+			writer := multipart.NewWriter(&buf)
+			part, _ := writer.CreateFormFile("audio", "test.wav")
+			part.Write([]byte("fake audio"))
+			if tt.paramValue != "" {
+				writer.WriteField("allow_feedback", tt.paramValue)
+			}
+			writer.Close()
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/speech/transcribe", &buf)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+
+			asrLogger.Close()
+
+			hasLogFiles := false
+			filepath.WalkDir(logDir, func(path string, d os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if !d.IsDir() && strings.HasSuffix(d.Name(), ".json") {
+					hasLogFiles = true
+				}
+				return nil
+			})
+
+			if tt.expectLogged && !hasLogFiles {
+				t.Error("expected log files to be written, but none found")
+			}
+			if !tt.expectLogged && hasLogFiles {
+				t.Error("expected no log files, but some were found")
 			}
 		})
 	}

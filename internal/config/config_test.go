@@ -61,6 +61,9 @@ func TestLoadFromEnv_Defaults(t *testing.T) {
 	if len(cfg.Models) != 3 || cfg.Models[0] != "gemini-3.1-pro-preview" {
 		t.Errorf("unexpected default models: %v", cfg.Models)
 	}
+	if !cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog true by default")
+	}
 }
 
 func TestLoadFromEnv_CustomValues(t *testing.T) {
@@ -321,5 +324,75 @@ func TestEngineShort(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("EngineShort() for %s = %q, want %q", tt.engine, got, tt.want)
 		}
+	}
+}
+
+func TestLoadFromEnv_AllowFeedbackLog_Default(t *testing.T) {
+	os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if !cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog true by default")
+	}
+}
+
+func TestLoadFromEnv_AllowFeedbackLog_SetFalse(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_ALLOW_FEEDBACK", "false")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog false when VOICE_ALLOW_FEEDBACK=false")
+	}
+}
+
+func TestLoadFromEnv_AllowFeedbackLog_SetTrue(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_ALLOW_FEEDBACK", "true")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if !cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog true when VOICE_ALLOW_FEEDBACK=true")
+	}
+}
+
+func TestLoadFromEnv_AllowFeedbackLog_InvalidIgnored(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_ALLOW_FEEDBACK", "yes")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if !cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog to remain true when VOICE_ALLOW_FEEDBACK has invalid value")
+	}
+}
+
+func TestLoadFromEnv_AllowFeedbackLog_Zero(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_ALLOW_FEEDBACK", "0")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog false when VOICE_ALLOW_FEEDBACK=0")
+	}
+}
+
+func TestLoadFromEnv_AllowFeedbackLog_One(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_ALLOW_FEEDBACK", "1")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if !cfg.AllowFeedbackLog {
+		t.Error("expected AllowFeedbackLog true when VOICE_ALLOW_FEEDBACK=1")
 	}
 }
