@@ -18,14 +18,15 @@ const (
 )
 
 const (
-	defaultPort         = 8780
-	defaultTimeout      = 30
-	defaultTotalTimeout = 45
-	defaultMaxDuration  = 60
-	defaultMaxFileSize  = 3 * 1024 * 1024
-	defaultCacheTTL     = 60
-	defaultLogBufSize   = 256
-	defaultRetention    = 7
+	defaultMaxUploadSize = 5 * 1024 * 1024
+	defaultPort          = 8780
+	defaultTimeout       = 30
+	defaultTotalTimeout  = 45
+	defaultMaxDuration   = 60
+	defaultMaxFileSize   = 3 * 1024 * 1024
+	defaultCacheTTL      = 60
+	defaultLogBufSize    = 256
+	defaultRetention     = 7
 )
 
 const (
@@ -49,8 +50,13 @@ type Config struct {
 	Timeout      int
 	TotalTimeout int
 	Models       []string
-	MaxDuration  int
-	MaxFileSize  int64
+	MaxDuration int
+	// MaxUploadSize is the hard limit on the entire HTTP request body size (including
+	// multipart boundaries and headers). Requests exceeding this are rejected with 413.
+	// VOICE_MAX_FILE_SIZE must be smaller than this value, otherwise the file size
+	// check will never trigger (the request body will be truncated first).
+	MaxUploadSize int64
+	MaxFileSize   int64
 	Engine       string
 	GPTModels    []string
 	Language     string
@@ -104,6 +110,7 @@ func LoadFromEnv(logger *zap.Logger) *Config {
 		TotalTimeout: defaultTotalTimeout,
 		Models:       models,
 		MaxDuration:  defaultMaxDuration,
+		MaxUploadSize: defaultMaxUploadSize,
 		MaxFileSize:  defaultMaxFileSize,
 		Engine:       EngineGemini,
 		GPTModels:    gptModels,
@@ -175,6 +182,12 @@ func LoadFromEnv(logger *zap.Logger) *Config {
 	if v := os.Getenv("VOICE_MAX_FILE_SIZE"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
 			cfg.MaxFileSize = n
+		}
+	}
+
+	if v := os.Getenv("VOICE_MAX_UPLOAD_SIZE"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			cfg.MaxUploadSize = n
 		}
 	}
 
@@ -306,6 +319,13 @@ func LoadFromEnv(logger *zap.Logger) *Config {
 func (c *Config) Validate() error {
 	if c.DBDsn == "" {
 		return errors.New("SPEECH_DB_DSN is required")
+	}
+
+	if c.MaxUploadSize <= 0 {
+		return errors.New("VOICE_MAX_UPLOAD_SIZE must be positive")
+	}
+	if c.MaxFileSize >= c.MaxUploadSize {
+		return errors.New("VOICE_MAX_FILE_SIZE must be smaller than VOICE_MAX_UPLOAD_SIZE")
 	}
 
 	if c.Engine == EngineQwen {

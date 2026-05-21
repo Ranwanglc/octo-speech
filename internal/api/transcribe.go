@@ -45,8 +45,7 @@ func (h *TranscribeHandler) Handle(c *gin.Context) {
 		requestID = fmt.Sprintf("nolog_%d_%s", time.Now().UnixMilli(), hex.EncodeToString(b))
 	}
 
-	const maxUploadSize = 5 * 1024 * 1024
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadSize)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxUploadSize)
 
 	file, header, err := c.Request.FormFile("audio")
 	if err != nil {

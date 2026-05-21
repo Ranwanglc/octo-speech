@@ -173,11 +173,13 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid gemini",
 			cfg: Config{
-				DBDsn:      "dsn",
-				LiteLLMUrl: "http://url",
-				LiteLLMKey: "key",
-				Engine:     EngineGemini,
-				Models:     []string{"m1"},
+				DBDsn:         "dsn",
+				LiteLLMUrl:    "http://url",
+				LiteLLMKey:    "key",
+				Engine:        EngineGemini,
+				Models:        []string{"m1"},
+				MaxUploadSize: 5 * 1024 * 1024,
+				MaxFileSize:   3 * 1024 * 1024,
 			},
 		},
 		{
@@ -203,21 +205,25 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid gpt",
 			cfg: Config{
-				DBDsn:      "dsn",
-				LiteLLMUrl: "http://url",
-				LiteLLMKey: "key",
-				Engine:     EngineGPT,
-				GPTModels:  []string{"gpt4"},
+				DBDsn:         "dsn",
+				LiteLLMUrl:    "http://url",
+				LiteLLMKey:    "key",
+				Engine:        EngineGPT,
+				GPTModels:     []string{"gpt4"},
+				MaxUploadSize: 5 * 1024 * 1024,
+				MaxFileSize:   3 * 1024 * 1024,
 			},
 		},
 		{
 			name: "valid qwen with own url",
 			cfg: Config{
-				DBDsn:      "dsn",
-				Engine:     EngineQwen,
-				QwenUrl:    "http://qwen",
-				QwenKey:    "qk",
-				QwenModels: []string{"qm"},
+				DBDsn:         "dsn",
+				Engine:        EngineQwen,
+				QwenUrl:       "http://qwen",
+				QwenKey:       "qk",
+				QwenModels:    []string{"qm"},
+				MaxUploadSize: 5 * 1024 * 1024,
+				MaxFileSize:   3 * 1024 * 1024,
 			},
 		},
 		{
@@ -394,5 +400,108 @@ func TestLoadFromEnv_AllowFeedbackLog_One(t *testing.T) {
 
 	if !cfg.AllowFeedbackLog {
 		t.Error("expected AllowFeedbackLog true when VOICE_ALLOW_FEEDBACK=1")
+	}
+}
+
+func TestLoadFromEnv_MaxUploadSize_Default(t *testing.T) {
+	os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if cfg.MaxUploadSize != 5*1024*1024 {
+		t.Errorf("expected max upload size 5MB, got %d", cfg.MaxUploadSize)
+	}
+}
+
+func TestLoadFromEnv_MaxUploadSize_FromEnv(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_MAX_UPLOAD_SIZE", "10485760")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if cfg.MaxUploadSize != 10485760 {
+		t.Errorf("expected max upload size 10485760, got %d", cfg.MaxUploadSize)
+	}
+}
+
+func TestLoadFromEnv_MaxUploadSize_ZeroFallsBackToDefault(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_MAX_UPLOAD_SIZE", "0")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if cfg.MaxUploadSize != 5*1024*1024 {
+		t.Errorf("expected default 5MB when VOICE_MAX_UPLOAD_SIZE=0, got %d", cfg.MaxUploadSize)
+	}
+}
+
+func TestLoadFromEnv_MaxUploadSize_NegativeFallsBackToDefault(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("VOICE_MAX_UPLOAD_SIZE", "-100")
+	defer os.Clearenv()
+
+	cfg := LoadFromEnv(nil)
+
+	if cfg.MaxUploadSize != 5*1024*1024 {
+		t.Errorf("expected default 5MB when VOICE_MAX_UPLOAD_SIZE=-100, got %d", cfg.MaxUploadSize)
+	}
+}
+
+func TestValidate_MaxUploadSizeZero(t *testing.T) {
+	cfg := Config{
+		DBDsn:         "dsn",
+		LiteLLMUrl:    "http://url",
+		LiteLLMKey:    "key",
+		Engine:        EngineGemini,
+		Models:        []string{"m1"},
+		MaxUploadSize: 0,
+		MaxFileSize:   3 * 1024 * 1024,
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("expected error when MaxUploadSize is 0")
+	}
+	if err != nil && err.Error() != "VOICE_MAX_UPLOAD_SIZE must be positive" {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MaxFileSizeOneLessThanMaxUploadSize(t *testing.T) {
+	cfg := Config{
+		DBDsn:         "dsn",
+		LiteLLMUrl:    "http://url",
+		LiteLLMKey:    "key",
+		Engine:        EngineGemini,
+		Models:        []string{"m1"},
+		MaxUploadSize: 5 * 1024 * 1024,
+		MaxFileSize:   5*1024*1024 - 1,
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("expected no error when MaxFileSize == MaxUploadSize-1, got: %v", err)
+	}
+}
+
+func TestValidate_MaxFileSizeExceedsMaxUploadSize(t *testing.T) {
+	cfg := Config{
+		DBDsn:        "dsn",
+		LiteLLMUrl:   "http://url",
+		LiteLLMKey:   "key",
+		Engine:       EngineGemini,
+		Models:       []string{"m1"},
+		MaxUploadSize: 5 * 1024 * 1024,
+		MaxFileSize:   5 * 1024 * 1024,
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("expected error when MaxFileSize >= MaxUploadSize")
+	}
+	if err != nil && err.Error() != "VOICE_MAX_FILE_SIZE must be smaller than VOICE_MAX_UPLOAD_SIZE" {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
