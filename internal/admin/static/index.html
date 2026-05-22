@@ -76,6 +76,7 @@
                         <th class="text-left px-4 py-3 font-medium">API Key</th>
                         <th class="text-left px-4 py-3 font-medium">Status</th>
                         <th class="text-left px-4 py-3 font-medium">Created</th>
+                        <th class="text-left px-4 py-3 font-medium">Updated</th>
                         <th class="text-left px-4 py-3 font-medium">Actions</th>
                     </tr>
                 </thead>
@@ -93,6 +94,7 @@
                                 </button>
                             </td>
                             <td class="px-4 py-3 text-xs text-gray-500" x-text="formatDate(app.created_at)"></td>
+                            <td class="px-4 py-3 text-xs text-gray-500" x-text="formatDate(app.updated_at)"></td>
                             <td class="px-4 py-3 space-x-2">
                                 <button @click="confirmReset(app)" class="text-blue-600 hover:underline text-xs">Reset Key</button>
                                 <button @click="confirmDelete(app)" class="text-red-600 hover:underline text-xs">Delete</button>
