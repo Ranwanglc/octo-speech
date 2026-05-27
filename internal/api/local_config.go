@@ -114,6 +114,45 @@ func (h *LocalConfigHandler) Get(c *gin.Context) {
 	})
 }
 
+func (h *LocalConfigHandler) Reset(c *gin.Context) {
+	appID, _ := c.Get("app_id")
+	appIDStr, _ := appID.(string)
+
+	var req struct {
+		SubjectID string `json:"subject_id"`
+		ScopeType string `json:"scope_type"`
+		ScopeID   string `json:"scope_id"`
+		Enabled   *bool  `json:"enabled"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "msg": "invalid request body"})
+		return
+	}
+
+	if req.SubjectID == "" || req.ScopeType == "" || req.ScopeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "msg": "subject_id, scope_type, and scope_id are required"})
+		return
+	}
+
+	if !store.IsValidScopeType(req.ScopeType) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "msg": "invalid scope_type, expected: global, space, org, project"})
+		return
+	}
+
+	if req.Enabled == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "msg": "enabled is required"})
+		return
+	}
+
+	if err := h.localCfgStore.ResetToDefault(appIDStr, req.SubjectID, req.ScopeType, req.ScopeID, *req.Enabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "msg": "failed to reset local config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "msg": "ok"})
+}
+
 func (h *LocalConfigHandler) Delete(c *gin.Context) {
 	appID, _ := c.Get("app_id")
 	appIDStr, _ := appID.(string)

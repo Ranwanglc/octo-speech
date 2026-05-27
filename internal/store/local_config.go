@@ -63,6 +63,25 @@ func (s *LocalConfigStore) Upsert(appID, subjectID, scopeType, scopeID string, e
 	return err
 }
 
+// ResetToDefault performs an UPSERT that sets enabled to the given value
+// and forces timeout_ms, probe_url, transcribe_url to system defaults.
+func (s *LocalConfigStore) ResetToDefault(appID, subjectID, scopeType, scopeID string, enabled bool) error {
+	defaultTimeout := s.cfg.LocalTimeoutMs
+	defaultProbe := s.cfg.LocalProbeURL
+	defaultTranscribe := s.cfg.LocalTranscribeURL
+
+	query := `INSERT INTO local_asr_config (app_id, subject_id, scope_type, scope_id, enabled, timeout_ms, probe_url, transcribe_url)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON DUPLICATE KEY UPDATE
+                enabled=VALUES(enabled),
+                timeout_ms=VALUES(timeout_ms),
+                probe_url=VALUES(probe_url),
+                transcribe_url=VALUES(transcribe_url)`
+
+	_, err := s.db.Exec(query, appID, subjectID, scopeType, scopeID, enabled, defaultTimeout, defaultProbe, defaultTranscribe)
+	return err
+}
+
 func (s *LocalConfigStore) Delete(appID, subjectID, scopeType, scopeID string) (int64, error) {
 	res, err := s.db.Exec(
 		`DELETE FROM local_asr_config
