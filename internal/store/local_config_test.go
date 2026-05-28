@@ -159,14 +159,14 @@ func TestResetToDefault_EnabledTrue(t *testing.T) {
 	s := NewLocalConfigStore(db, cfg)
 
 	mock.ExpectExec(
-		`INSERT INTO local_asr_config \(app_id, subject_id, scope_type, scope_id, enabled, timeout_ms, probe_url, transcribe_url\)`+
-			` VALUES \(\?, \?, \?, \?, \?, \?, \?, \?\)`+
+		`INSERT INTO local_asr_config \(app_id, subject_id, scope_type, scope_id, enabled\)`+
+			` VALUES \(\?, \?, \?, \?, \?\)`+
 			` ON DUPLICATE KEY UPDATE`+
 			`\s+enabled=VALUES\(enabled\),`+
-			`\s+timeout_ms=VALUES\(timeout_ms\),`+
-			`\s+probe_url=VALUES\(probe_url\),`+
-			`\s+transcribe_url=VALUES\(transcribe_url\)`,
-	).WithArgs("app1", "sub1", "space", "scope1", true, 10000, "http://localhost:8787/", "http://localhost:8787/v1/voice/transcribe").
+			`\s+timeout_ms=NULL,`+
+			`\s+probe_url=NULL,`+
+			`\s+transcribe_url=NULL`,
+	).WithArgs("app1", "sub1", "space", "scope1", true).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = s.ResetToDefault("app1", "sub1", "space", "scope1", true)
@@ -194,14 +194,14 @@ func TestResetToDefault_EnabledFalse(t *testing.T) {
 	s := NewLocalConfigStore(db, cfg)
 
 	mock.ExpectExec(
-		`INSERT INTO local_asr_config \(app_id, subject_id, scope_type, scope_id, enabled, timeout_ms, probe_url, transcribe_url\)`+
-			` VALUES \(\?, \?, \?, \?, \?, \?, \?, \?\)`+
+		`INSERT INTO local_asr_config \(app_id, subject_id, scope_type, scope_id, enabled\)`+
+			` VALUES \(\?, \?, \?, \?, \?\)`+
 			` ON DUPLICATE KEY UPDATE`+
 			`\s+enabled=VALUES\(enabled\),`+
-			`\s+timeout_ms=VALUES\(timeout_ms\),`+
-			`\s+probe_url=VALUES\(probe_url\),`+
-			`\s+transcribe_url=VALUES\(transcribe_url\)`,
-	).WithArgs("app1", "sub1", "org", "scope1", false, 5000, "http://example.com/probe", "http://example.com/transcribe").
+			`\s+timeout_ms=NULL,`+
+			`\s+probe_url=NULL,`+
+			`\s+transcribe_url=NULL`,
+	).WithArgs("app1", "sub1", "org", "scope1", false).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = s.ResetToDefault("app1", "sub1", "org", "scope1", false)

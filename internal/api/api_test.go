@@ -1876,7 +1876,7 @@ func TestLocalConfigHandler_ResetSuccess(t *testing.T) {
 	r, mock := setupLocalConfigRouterWithMock(t)
 
 	mock.ExpectExec("INSERT INTO local_asr_config").
-		WithArgs("test-app", "user1", "space", "space1", true, 10000, "http://localhost:8787/", "http://localhost:8787/v1/voice/transcribe").
+		WithArgs("test-app", "user1", "space", "space1", true).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	body := `{"subject_id":"user1","scope_type":"space","scope_id":"space1","enabled":true}`
@@ -1891,8 +1891,17 @@ func TestLocalConfigHandler_ResetSuccess(t *testing.T) {
 
 	var resp map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp["msg"] != "ok" {
-		t.Errorf("expected msg 'ok', got %v", resp["msg"])
+	if resp["enabled"] != true {
+		t.Errorf("expected enabled true, got %v", resp["enabled"])
+	}
+	if resp["timeout_ms"] != float64(10000) {
+		t.Errorf("expected timeout_ms 10000, got %v", resp["timeout_ms"])
+	}
+	if resp["probe_url"] != "http://localhost:8787/" {
+		t.Errorf("expected default probe_url, got %v", resp["probe_url"])
+	}
+	if resp["transcribe_url"] != "http://localhost:8787/v1/voice/transcribe" {
+		t.Errorf("expected default transcribe_url, got %v", resp["transcribe_url"])
 	}
 }
 

@@ -150,7 +150,13 @@ func (h *LocalConfigHandler) Reset(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "msg": "ok"})
+	c.JSON(http.StatusOK, gin.H{
+		"status":         http.StatusOK,
+		"enabled":        *req.Enabled,
+		"timeout_ms":     h.localCfgStore.GetDefaultTimeoutMs(),
+		"probe_url":      h.localCfgStore.GetDefaultProbeURL(),
+		"transcribe_url": h.localCfgStore.GetDefaultTranscribeURL(),
+	})
 }
 
 func (h *LocalConfigHandler) Delete(c *gin.Context) {
