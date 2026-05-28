@@ -25,6 +25,12 @@ jobs:
     secrets:
       OCTO_BOT_TOKEN: ${{ secrets.OCTO_BOT_TOKEN }}
 
+  # Fork-origin PR reviews are intentionally excluded: GitHub Actions does not
+  # pass repository/org secrets to workflows triggered by pull_request_review
+  # events from forked repositories. Notifying fork PR reviews would require a
+  # workflow_run indirection which adds significant complexity for a rare case.
+  # This is a documented trade-off: only reviews on PRs from the same repository
+  # (i.e. branches, not forks) will be broadcast to the pr-feed group.
   review-result:
     if: >-
       github.event_name == 'pull_request_review' &&
