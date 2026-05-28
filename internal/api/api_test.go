@@ -1291,6 +1291,7 @@ func setupLocalConfigRouter() (*gin.Engine, *LocalConfigHandler) {
 	r.PUT("/v1/speech/local-config", h.Put)
 	r.GET("/v1/speech/local-config", h.Get)
 	r.DELETE("/v1/speech/local-config", h.Delete)
+	r.POST("/v1/speech/local-config/reset", h.Reset)
 	return r, h
 }
 
@@ -1319,6 +1320,7 @@ func setupLocalConfigRouterWithMock(t *testing.T) (*gin.Engine, sqlmock.Sqlmock)
 	r.PUT("/v1/speech/local-config", h.Put)
 	r.GET("/v1/speech/local-config", h.Get)
 	r.DELETE("/v1/speech/local-config", h.Delete)
+	r.POST("/v1/speech/local-config/reset", h.Reset)
 	return r, mock
 }
 
@@ -1777,5 +1779,151 @@ func TestLocalConfigHandler_URLTooLong(t *testing.T) {
 	msg, _ := resp["msg"].(string)
 	if !strings.Contains(msg, "500 characters") {
 		t.Errorf("expected error about 500 characters, got %v", resp["msg"])
+	}
+}
+
+func TestLocalConfigHandler_ResetMissingFields(t *testing.T) {
+	r, _ := setupLocalConfigRouter()
+
+	tests := []struct {
+		name string
+		body string
+		want int
+		msg  string
+	}{
+		{
+			"missing subject_id",
+			`{"scope_type":"global","scope_id":"default","enabled":true}`,
+			400,
+			"subject_id, scope_type, and scope_id are required",
+		},
+		{
+			"missing scope_type",
+			`{"subject_id":"user1","scope_id":"default","enabled":true}`,
+			400,
+			"subject_id, scope_type, and scope_id are required",
+		},
+		{
+			"missing scope_id",
+			`{"subject_id":"user1","scope_type":"global","enabled":true}`,
+			400,
+			"subject_id, scope_type, and scope_id are required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/speech/local-config/reset",
+				strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			r.ServeHTTP(w, req)
+
+			if w.Code != tt.want {
+				t.Errorf("expected %d, got %d: %s", tt.want, w.Code, w.Body.String())
+			}
+
+			var resp map[string]interface{}
+			json.Unmarshal(w.Body.Bytes(), &resp)
+			if resp["msg"] != tt.msg {
+				t.Errorf("expected msg %q, got %v", tt.msg, resp["msg"])
+			}
+		})
+	}
+}
+
+func TestLocalConfigHandler_ResetMissingEnabled(t *testing.T) {
+	r, _ := setupLocalConfigRouter()
+
+	body := `{"subject_id":"user1","scope_type":"global","scope_id":"default"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/local-config/reset", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["msg"] != "enabled is required" {
+		t.Errorf("expected msg 'enabled is required', got %v", resp["msg"])
+	}
+}
+
+func TestLocalConfigHandler_ResetInvalidScopeType(t *testing.T) {
+	r, _ := setupLocalConfigRouter()
+
+	body := `{"subject_id":"user1","scope_type":"invalid","scope_id":"default","enabled":true}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/local-config/reset", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["msg"] != "invalid scope_type, expected: global, space, org, project" {
+		t.Errorf("expected invalid scope_type msg, got %v", resp["msg"])
+	}
+}
+
+func TestLocalConfigHandler_ResetSuccess(t *testing.T) {
+	r, mock := setupLocalConfigRouterWithMock(t)
+
+	mock.ExpectExec("INSERT INTO local_asr_config").
+		WithArgs("test-app", "user1", "space", "space1", true).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	body := `{"subject_id":"user1","scope_type":"space","scope_id":"space1","enabled":true}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/local-config/reset", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["enabled"] != true {
+		t.Errorf("expected enabled true, got %v", resp["enabled"])
+	}
+	if resp["timeout_ms"] != float64(10000) {
+		t.Errorf("expected timeout_ms 10000, got %v", resp["timeout_ms"])
+	}
+	if resp["probe_url"] != "http://localhost:8787/" {
+		t.Errorf("expected default probe_url, got %v", resp["probe_url"])
+	}
+	if resp["transcribe_url"] != "http://localhost:8787/v1/voice/transcribe" {
+		t.Errorf("expected default transcribe_url, got %v", resp["transcribe_url"])
+	}
+}
+
+func TestLocalConfigHandler_ResetDBError(t *testing.T) {
+	r, mock := setupLocalConfigRouterWithMock(t)
+
+	mock.ExpectExec("INSERT INTO local_asr_config").
+		WillReturnError(fmt.Errorf("connection refused"))
+
+	body := `{"subject_id":"user1","scope_type":"global","scope_id":"default","enabled":false}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/speech/local-config/reset", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["msg"] != "failed to reset local config" {
+		t.Errorf("expected msg 'failed to reset local config', got %v", resp["msg"])
 	}
 }

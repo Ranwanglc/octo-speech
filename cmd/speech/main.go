@@ -97,6 +97,7 @@ func main() {
 		protected.PUT("/local-config", localConfigHandler.Put)
 		protected.GET("/local-config", localConfigHandler.Get)
 		protected.DELETE("/local-config", localConfigHandler.Delete)
+		protected.POST("/local-config/reset", localConfigHandler.Reset)
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
