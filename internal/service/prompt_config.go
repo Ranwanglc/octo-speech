@@ -12,6 +12,13 @@ type PromptConfig struct {
 	System                   string `yaml:"system"`
 	SystemAppendOnly         string `yaml:"system_append_only"`
 	SystemEditOnly           string `yaml:"system_edit_only"`
+
+	// Track whether mode-specific prompts were explicitly overridden via YAML.
+	// When only `system` is overridden, append/edit_only modes should fall back
+	// to the custom `system` prompt for backward compatibility.
+	SystemOverridden         bool `yaml:"-"`
+	AppendOnlyOverridden     bool `yaml:"-"`
+	EditOnlyOverridden       bool `yaml:"-"`
 	VocabularyReference      string `yaml:"vocabulary_reference"`
 	AppendInputBuffer        string `yaml:"append_input_buffer"`
 	AppendInputBufferNoVocab string `yaml:"append_input_buffer_no_vocab"`
@@ -117,6 +124,7 @@ func LoadPrompts(filePath string, logger *zap.Logger) {
 
 	if strings.TrimSpace(cfg.System) != "" {
 		activePrompts.System = strings.TrimRight(cfg.System, "\r\n")
+		activePrompts.SystemOverridden = true
 		if !strings.Contains(activePrompts.System, "{{RULE5_TITLE}}") && logger != nil {
 			logger.Warn("custom system prompt lacks {{RULE5_TITLE}} placeholder; emotion toggle will not affect system message",
 				zap.String("path", filePath))
@@ -124,9 +132,11 @@ func LoadPrompts(filePath string, logger *zap.Logger) {
 	}
 	if strings.TrimSpace(cfg.SystemAppendOnly) != "" {
 		activePrompts.SystemAppendOnly = strings.TrimRight(cfg.SystemAppendOnly, "\r\n")
+		activePrompts.AppendOnlyOverridden = true
 	}
 	if strings.TrimSpace(cfg.SystemEditOnly) != "" {
 		activePrompts.SystemEditOnly = strings.TrimRight(cfg.SystemEditOnly, "\r\n")
+		activePrompts.EditOnlyOverridden = true
 	}
 
 	templateFields := []struct {

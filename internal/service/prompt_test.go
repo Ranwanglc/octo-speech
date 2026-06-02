@@ -74,6 +74,44 @@ func TestBuildSystemMessage_SkipBroadcastMention(t *testing.T) {
 	}
 }
 
+func TestBuildSystemMessage_EditOnlyMention(t *testing.T) {
+	ResetPromptsToDefaults()
+	msg := BuildSystemMessage(true, false, "edit_only")
+
+	if !strings.Contains(msg, "@提及识别") {
+		t.Error("expected mention section in edit_only system message")
+	}
+	if !strings.Contains(msg, "### 广播 @mention") {
+		t.Error("expected broadcast mention section in edit_only system message")
+	}
+}
+
+func TestBuildSystemMessage_EditOnlySkipMention(t *testing.T) {
+	ResetPromptsToDefaults()
+	msg := BuildSystemMessage(true, true, "edit_only")
+
+	if strings.Contains(msg, "@提及识别") {
+		t.Error("expected no mention section in edit_only when skipMention=true")
+	}
+}
+
+func TestBuildSystemMessage_FallbackToCustomSystem(t *testing.T) {
+	ResetPromptsToDefaults()
+	activePrompts.System = "custom system prompt"
+	activePrompts.SystemOverridden = true
+	// AppendOnlyOverridden and EditOnlyOverridden remain false
+
+	appendMsg := BuildSystemMessage(true, false, "append")
+	if appendMsg != "custom system prompt" {
+		t.Errorf("append mode should fall back to custom system prompt, got: %s", appendMsg[:50])
+	}
+
+	editOnlyMsg := BuildSystemMessage(true, false, "edit_only")
+	if editOnlyMsg != "custom system prompt" {
+		t.Errorf("edit_only mode should fall back to custom system prompt, got: %s", editOnlyMsg[:50])
+	}
+}
+
 func TestBuildUserMessage_AppendNoContext(t *testing.T) {
 	ResetPromptsToDefaults()
 	msg := BuildUserMessage("append", "", "", true)
@@ -126,7 +164,7 @@ func TestBuildUserMessage_EditOnly(t *testing.T) {
 	ResetPromptsToDefaults()
 	msg := BuildUserMessage("edit_only", "text to edit", "", true)
 
-	if !strings.Contains(msg, "语音指令编辑上述文本") {
+	if !strings.Contains(msg, "根据音频语音指令编辑上方 input_buffer") {
 		t.Error("expected edit_only task instruction")
 	}
 }
