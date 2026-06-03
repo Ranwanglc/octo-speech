@@ -24,7 +24,7 @@ func TestBuildSystemMessage_NoEmotion(t *testing.T) {
 	ResetPromptsToDefaults()
 	msg := BuildSystemMessage(false, false)
 
-	if strings.Contains(msg, "情绪标注（⚠️ 必须执行）") {
+	if strings.Contains(msg, "情绪标注(⚠️ 必须执行)") {
 		t.Error("expected no emotion section")
 	}
 	if !strings.Contains(msg, "@提及识别") {
@@ -99,10 +99,10 @@ func TestBuildSystemMessage_EditOnlyWithEmotion(t *testing.T) {
 	ResetPromptsToDefaults()
 	msg := BuildSystemMessage(true, false, "edit_only")
 
-	if !strings.Contains(msg, "### 规则 5：情绪标注") {
+	if !strings.Contains(msg, "### 规则 5:情绪标注") {
 		t.Error("expected emotion annotation rule (rule 5) in edit_only system message when emotion enabled")
 	}
-	if !strings.Contains(msg, "情绪标注（⚠️ 必须执行）") {
+	if !strings.Contains(msg, "情绪标注(⚠️ 必须执行)") {
 		t.Error("expected emotion annotation section body in edit_only system message when emotion enabled")
 	}
 }
@@ -114,10 +114,10 @@ func TestBuildSystemMessage_EditOnlyNoEmotion(t *testing.T) {
 	// When emotion is disabled, the entire rule 5 (heading + intro + section)
 	// must be gone, not just the placeholder body. Guards against regression
 	// where the rule 5 heading/intro was hardcoded in systemPromptEditOnly.
-	if strings.Contains(msg, "### 规则 5：情绪标注") {
+	if strings.Contains(msg, "### 规则 5:情绪标注") {
 		t.Error("expected no emotion annotation rule (rule 5) in edit_only when emotion disabled")
 	}
-	if strings.Contains(msg, "情绪标注（⚠️ 必须执行）") {
+	if strings.Contains(msg, "情绪标注(⚠️ 必须执行)") {
 		t.Error("expected no emotion annotation section in edit_only when emotion disabled")
 	}
 }

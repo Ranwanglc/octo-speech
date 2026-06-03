@@ -82,7 +82,17 @@ func (s *TranscribeService) Transcribe(audioData []byte, mimeType, contextText, 
 	userMsg := BuildUserMessage(mode, contextText, chatContext, emotionEmoji)
 	var systemMsg string
 	if engine != config.EngineGPT {
-		systemMsg = BuildSystemMessage(emotionEmoji, opts.SkipMention, mode)
+		// Keep the system prompt mode aligned with the actual user-message task.
+		// BuildUserMessage falls back to a transcription task for edit/edit_only
+		// when there is no input buffer, so the system prompt must also fall back
+		// to the generic transcription template; otherwise the editor-only system
+		// prompt (which forbids [NO_SPEECH] / says "do not transcribe") contradicts
+		// the transcription task on the first utterance (empty buffer).
+		systemMode := mode
+		if (mode == "edit" || mode == "edit_only") && contextText == "" {
+			systemMode = ""
+		}
+		systemMsg = BuildSystemMessage(emotionEmoji, opts.SkipMention, systemMode)
 	}
 
 	var rawText, model string
@@ -258,7 +268,7 @@ func (s *TranscribeService) callGPTWithModelFallback(audioData []byte, mimeType,
 func (s *TranscribeService) callChatCompletion(totalCtx context.Context, model string, audioData []byte, mimeType, systemMsg, userMsg, engine string) (string, interface{}, error) {
 	b64Audio := base64.StdEncoding.EncodeToString(audioData)
 
-	// qwen3.5-omni-plus requires data URI prefix
+	// Qwen models accept audio via a data URI prefix on the base64 payload.
 	if engine == config.EngineQwen {
 		b64Audio = "data:;base64," + b64Audio
 	}

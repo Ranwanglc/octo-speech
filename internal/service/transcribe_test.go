@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Mininglamp-OSS/octo-speech/internal/config"
@@ -340,6 +341,126 @@ func TestTranscribe_GeminiReasoningEffort(t *testing.T) {
 
 	if body.ReasoningEffort != "low" {
 		t.Errorf("expected reasoning_effort=low for 3.1-pro, got %q", body.ReasoningEffort)
+	}
+}
+
+// Regression: edit_only mode with an empty buffer must NOT send the editor-only
+// system prompt (which forbids [NO_SPEECH]); it must fall back to the generic
+// transcription template so it agrees with the transcription task BuildUserMessage
+// emits for empty buffers.
+func TestTranscribe_EditOnlyEmptyBuffer_SystemFallsBackToTranscribe(t *testing.T) {
+	var body chatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&body)
+		resp := chatCompletionResponse{
+			Choices: []choice{{Message: responseMessage{Content: "result"}}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		LiteLLMUrl:   server.URL,
+		LiteLLMKey:   "test-key",
+		Engine:       config.EngineGemini,
+		Models:       []string{"test-model"},
+		Timeout:      30,
+		TotalTimeout: 45,
+		EditMode:     "edit_only",
+		EmotionEmoji: true,
+	}
+
+	svc := NewTranscribeService(cfg)
+	if _, err := svc.Transcribe([]byte("audio"), "audio/wav", "", "", TranscribeOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(body.Messages) < 1 {
+		t.Fatal("expected a system message")
+	}
+	sysMsg, _ := body.Messages[0].Content.(string)
+	if strings.Contains(sysMsg, "你是语音指令编辑器") {
+		t.Error("edit_only + empty buffer should NOT use the editor-only system prompt")
+	}
+	if strings.Contains(sysMsg, "edit_only 模式下禁止输出 [NO_SPEECH]") {
+		t.Error("edit_only + empty buffer system prompt must not forbid [NO_SPEECH] while user task asks for it")
+	}
+}
+
+// Regression: smart/edit mode with an empty buffer must NOT inject the
+// editor-only section ("你现在是文本编辑器"), because BuildUserMessage emits a
+// transcription task for empty buffers. This is the default first-utterance path
+// for non-GPT engines.
+func TestTranscribe_EditEmptyBuffer_NoEditorSection(t *testing.T) {
+	var body chatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&body)
+		resp := chatCompletionResponse{
+			Choices: []choice{{Message: responseMessage{Content: "result"}}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		LiteLLMUrl:   server.URL,
+		LiteLLMKey:   "test-key",
+		Engine:       config.EngineGemini,
+		Models:       []string{"test-model"},
+		Timeout:      30,
+		TotalTimeout: 45,
+		EditMode:     "edit",
+		EmotionEmoji: true,
+	}
+
+	svc := NewTranscribeService(cfg)
+	if _, err := svc.Transcribe([]byte("audio"), "audio/wav", "", "", TranscribeOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(body.Messages) < 1 {
+		t.Fatal("expected a system message")
+	}
+	sysMsg, _ := body.Messages[0].Content.(string)
+	if strings.Contains(sysMsg, "你现在是文本编辑器") {
+		t.Error("edit + empty buffer should NOT inject the editor-only section while user task is transcription")
+	}
+}
+
+// Sanity: edit mode WITH a buffer should still inject the editor-only section.
+func TestTranscribe_EditWithBuffer_HasEditorSection(t *testing.T) {
+	var body chatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&body)
+		resp := chatCompletionResponse{
+			Choices: []choice{{Message: responseMessage{Content: "result"}}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		LiteLLMUrl:   server.URL,
+		LiteLLMKey:   "test-key",
+		Engine:       config.EngineGemini,
+		Models:       []string{"test-model"},
+		Timeout:      30,
+		TotalTimeout: 45,
+		EditMode:     "edit",
+		EmotionEmoji: true,
+	}
+
+	svc := NewTranscribeService(cfg)
+	if _, err := svc.Transcribe([]byte("audio"), "audio/wav", "existing text", "", TranscribeOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(body.Messages) < 1 {
+		t.Fatal("expected a system message")
+	}
+	sysMsg, _ := body.Messages[0].Content.(string)
+	if !strings.Contains(sysMsg, "你现在是文本编辑器") {
+		t.Error("edit + non-empty buffer should inject the editor-only section")
 	}
 }
 
