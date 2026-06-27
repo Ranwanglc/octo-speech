@@ -18,6 +18,11 @@ func TestBuildSystemMessage_WithEmotion(t *testing.T) {
 	if !strings.Contains(msg, "语气保真与情绪标注") {
 		t.Error("expected rule5 title with emotion")
 	}
+	for _, tag := range []string{"[有品位]", "[崇尚行动]", "[使命必达]", "[尚方宝剑]"} {
+		if !strings.Contains(msg, tag) {
+			t.Errorf("expected custom emoji tag %s in system message", tag)
+		}
+	}
 }
 
 func TestBuildSystemMessage_NoEmotion(t *testing.T) {
