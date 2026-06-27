@@ -110,6 +110,11 @@ func TestBuildSystemMessage_EditOnlyWithEmotion(t *testing.T) {
 	if !strings.Contains(msg, "情绪标注(⚠️ 必须执行)") {
 		t.Error("expected emotion annotation section body in edit_only system message when emotion enabled")
 	}
+	for _, tag := range []string{"[有品位]", "[崇尚行动]", "[使命必达]", "[尚方宝剑]"} {
+		if !strings.Contains(msg, tag) {
+			t.Errorf("expected custom emoji tag %s in edit_only system message", tag)
+		}
+	}
 }
 
 func TestBuildSystemMessage_EditOnlyNoEmotion(t *testing.T) {
