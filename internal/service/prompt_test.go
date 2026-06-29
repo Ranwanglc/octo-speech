@@ -134,6 +134,10 @@ func TestBuildSystemMessage_EditOnlyNoEmotion(t *testing.T) {
 
 func TestBuildSystemMessage_FallbackToCustomSystem(t *testing.T) {
 	ResetPromptsToDefaults()
+	// Restore global prompt state afterwards so a shuffled run order cannot
+	// leak this custom override into other tests that rely on the default
+	// template (e.g. TestTranscribe_EditWithBuffer_HasEditorSection).
+	defer ResetPromptsToDefaults()
 	activePrompts.System = "custom system prompt"
 	activePrompts.SystemOverridden = true
 	// AppendOnlyOverridden and EditOnlyOverridden remain false

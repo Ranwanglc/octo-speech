@@ -349,6 +349,7 @@ func TestTranscribe_GeminiReasoningEffort(t *testing.T) {
 // transcription template so it agrees with the transcription task BuildUserMessage
 // emits for empty buffers.
 func TestTranscribe_EditOnlyEmptyBuffer_SystemFallsBackToTranscribe(t *testing.T) {
+	ResetPromptsToDefaults()
 	var body chatCompletionRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&body)
@@ -392,6 +393,7 @@ func TestTranscribe_EditOnlyEmptyBuffer_SystemFallsBackToTranscribe(t *testing.T
 // transcription task for empty buffers. This is the default first-utterance path
 // for non-GPT engines.
 func TestTranscribe_EditEmptyBuffer_NoEditorSection(t *testing.T) {
+	ResetPromptsToDefaults()
 	var body chatCompletionRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&body)
@@ -429,6 +431,7 @@ func TestTranscribe_EditEmptyBuffer_NoEditorSection(t *testing.T) {
 
 // Sanity: edit mode WITH a buffer should still inject the editor-only section.
 func TestTranscribe_EditWithBuffer_HasEditorSection(t *testing.T) {
+	ResetPromptsToDefaults()
 	var body chatCompletionRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&body)
