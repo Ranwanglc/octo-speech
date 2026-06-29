@@ -18,6 +18,11 @@ func TestBuildSystemMessage_WithEmotion(t *testing.T) {
 	if !strings.Contains(msg, "语气保真与情绪标注") {
 		t.Error("expected rule5 title with emotion")
 	}
+	for _, tag := range []string{"[有品位]", "[崇尚行动]", "[使命必达]", "[尚方宝剑]"} {
+		if !strings.Contains(msg, tag) {
+			t.Errorf("expected custom emoji tag %s in system message", tag)
+		}
+	}
 }
 
 func TestBuildSystemMessage_NoEmotion(t *testing.T) {
@@ -105,6 +110,11 @@ func TestBuildSystemMessage_EditOnlyWithEmotion(t *testing.T) {
 	if !strings.Contains(msg, "情绪标注(⚠️ 必须执行)") {
 		t.Error("expected emotion annotation section body in edit_only system message when emotion enabled")
 	}
+	for _, tag := range []string{"[有品位]", "[崇尚行动]", "[使命必达]", "[尚方宝剑]"} {
+		if !strings.Contains(msg, tag) {
+			t.Errorf("expected custom emoji tag %s in edit_only system message", tag)
+		}
+	}
 }
 
 func TestBuildSystemMessage_EditOnlyNoEmotion(t *testing.T) {
@@ -124,6 +134,10 @@ func TestBuildSystemMessage_EditOnlyNoEmotion(t *testing.T) {
 
 func TestBuildSystemMessage_FallbackToCustomSystem(t *testing.T) {
 	ResetPromptsToDefaults()
+	// Restore global prompt state afterwards so a shuffled run order cannot
+	// leak this custom override into other tests that rely on the default
+	// template (e.g. TestTranscribe_EditWithBuffer_HasEditorSection).
+	defer ResetPromptsToDefaults()
 	activePrompts.System = "custom system prompt"
 	activePrompts.SystemOverridden = true
 	// AppendOnlyOverridden and EditOnlyOverridden remain false
