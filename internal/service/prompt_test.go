@@ -348,6 +348,14 @@ func TestBuildSystemMessage_ASRCleanup_EditOnly(t *testing.T) {
 		if !strings.Contains(msg, "施事不同不合并") {
 			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动E 反例(施事)", emotion)
 		}
+		// 与 append/template parity:editOnly 规则3 也应含"同意群内最小语序整理",防未来重构漏掉。
+		if !strings.Contains(msg, "同意群内最小语序整理") {
+			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动B 最小语序整理", emotion)
+		}
+		// few-shot 与 testdata E1 一致:示例10 正例首句必须与 asr_cleanup_cases.md E1 期望首句同串,防再度分叉。
+		if !strings.Contains(msg, "把变更列表分别发给产品和研发、抄送给运维和测试") {
+			t.Errorf("[emotion=%v] editOnly 示例10 正例首句与 testdata E1 分叉", emotion)
+		}
 	}
 }
 
