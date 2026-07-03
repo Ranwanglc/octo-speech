@@ -414,3 +414,46 @@ func TestIsNoSpeech(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildSystemMessage_ASRCleanup_EditOnlyExample19Anchor(t *testing.T) {
+	ResetPromptsToDefaults()
+	// OCT-103 改动 F:editOnly 缺"示例19"few-shot 是 E1/E3 挂的根因,必须显式含关键词
+	// 与本次 edit_only 变体正例的首句,防止后续重构再度剥离。
+	for _, emotion := range []bool{true, false} {
+		msg := BuildSystemMessage(emotion, false, "edit_only")
+		if !strings.Contains(msg, "示例19") {
+			t.Errorf("[emotion=%v] editOnly 缺\"示例19\"关键词锚点", emotion)
+		}
+		if !strings.Contains(msg, "分别把变更列表发给产品和研发") {
+			t.Errorf("[emotion=%v] editOnly 缺本次追加的示例10 正例首句", emotion)
+		}
+		if !strings.Contains(msg, "buffer\"v2.0 已部署上线。\"逐字不动") {
+			t.Errorf("[emotion=%v] editOnly 缺示例10 判据里\"buffer 逐字不动\"约束", emotion)
+		}
+	}
+}
+
+func TestBuildSystemMessage_ASRCleanup_P3AnchorInAppendAndTemplate(t *testing.T) {
+	ResetPromptsToDefaults()
+	// OCT-103 改动 G:no-emotion 短 prompt 下 P3 挂,补一条"不同动词族仅靠分别统辖"短正例锚点,
+	// 必须在 append 与 template(edit) 两模板都渲染,且 emotion 开/关皆在。
+	for _, emotion := range []bool{true, false} {
+		for _, mode := range []string{"append", "edit"} {
+			var msg string
+			if mode == "append" {
+				msg = BuildSystemMessage(emotion, false)
+			} else {
+				msg = BuildSystemMessage(emotion, false, "edit")
+			}
+			if !strings.Contains(msg, "P3 补充锚点(OCT-89") {
+				t.Errorf("[emotion=%v mode=%s] 缺 P3 补充锚点子标题", emotion, mode)
+			}
+			if !strings.Contains(msg, "麻烦你把这两个 bug 分别修一下") {
+				t.Errorf("[emotion=%v mode=%s] 缺 P3 锚点输入句", emotion, mode)
+			}
+			if !strings.Contains(msg, "麻烦你把这两个 bug 分别修一下、提交 PR、写一下 changelog。") {
+				t.Errorf("[emotion=%v mode=%s] 缺 P3 锚点期望输出", emotion, mode)
+			}
+		}
+	}
+}
