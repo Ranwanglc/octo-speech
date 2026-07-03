@@ -309,6 +309,20 @@ func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
 			if strings.Contains(msg, "同一动作(同一动词/近义动词族)") {
 				t.Errorf("[emotion=%v mode=%s] 旧\"同一动作/近义动词族\"口径未替换", emotion, mode)
 			}
+			// OCT-102:示例19 判据段必须与放宽后规则4 正文对齐——不得留旧"同一动作族"口径,且要显式出现"同一分配语义"。
+			const ex19Head = "示例19 - ASR 语义冗余去重合并"
+			const ex19Tail = "示例19 反例"
+			if i, j := strings.Index(msg, ex19Head), strings.Index(msg, ex19Tail); i >= 0 && j > i {
+				rationale := msg[i:j]
+				if strings.Contains(rationale, "同一动作族") {
+					t.Errorf("[emotion=%v mode=%s] 示例19 判据仍含旧\"同一动作族\"口径,与放宽后规则4 自相矛盾", emotion, mode)
+				}
+				if !strings.Contains(rationale, "同一分配语义") {
+					t.Errorf("[emotion=%v mode=%s] 示例19 判据缺\"同一分配语义\"字样,与规则正文口径未对齐", emotion, mode)
+				}
+			} else {
+				t.Errorf("[emotion=%v mode=%s] 未定位到示例19 判据段(head=%d tail=%d)", emotion, mode, i, j)
+			}
 			// nit1 回归:示例19 ✅ 行不得含反斜杠双引号(raw string 里 \\\" 会原样进 prompt)
 			if strings.Contains(msg, `他刚才说\"口令就是`) {
 				t.Errorf("[emotion=%v mode=%s] 示例19 ✅ 行残留反斜杠双引号(nit1 回归)", emotion, mode)
