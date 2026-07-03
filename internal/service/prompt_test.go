@@ -1,6 +1,7 @@
 package service
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -265,6 +266,103 @@ func TestBuildVocabularyReference_All(t *testing.T) {
 	}
 	if !strings.Contains(result, "<latest_chat_context>") {
 		t.Error("expected latest_chat_context")
+	}
+}
+
+func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
+	ResetPromptsToDefaults()
+	// v2 方案改动 A/B/D 必须同时落到 append 与 template(edit)两模板;
+	// 用 emotion 开/关两种渲染都验证一遍,防止 rule5 段被 emotion 分支吃掉。
+	for _, emotion := range []bool{true, false} {
+		for _, mode := range []string{"append", "edit"} {
+			var msg string
+			if mode == "append" {
+				msg = BuildSystemMessage(emotion, false)
+			} else {
+				msg = BuildSystemMessage(emotion, false, "edit")
+			}
+			if !strings.Contains(msg, "语义冗余的实义词重复可去重合并") {
+				t.Errorf("[emotion=%v mode=%s] missing 改动A 例外条款", emotion, mode)
+			}
+			if !strings.Contains(msg, "合并三前提") && !strings.Contains(msg, "合并三前提**同时成立**") {
+				t.Errorf("[emotion=%v mode=%s] missing 改动B 合并三前提", emotion, mode)
+			}
+			if !strings.Contains(msg, "同意群内最小语序整理") {
+				t.Errorf("[emotion=%v mode=%s] missing 改动B 最小语序整理", emotion, mode)
+			}
+			if !strings.Contains(msg, "在规则4 授权范围内") {
+				t.Errorf("[emotion=%v mode=%s] missing 改动D 最高层新口径", emotion, mode)
+			}
+			if strings.Contains(msg, "润色只限于去除冗余,不得改变用词、句序、术语") {
+				t.Errorf("[emotion=%v mode=%s] 旧最高层口径未被替换,会压回规则4", emotion, mode)
+			}
+			if !strings.Contains(msg, "示例19 - ASR 语义冗余去重合并") {
+				t.Errorf("[emotion=%v mode=%s] missing 示例19", emotion, mode)
+			}
+			if !strings.Contains(msg, "@Thomas.fu 创建两个子区分别跟踪解决这两个 issue") {
+				t.Errorf("[emotion=%v mode=%s] 示例19 正例文本缺失", emotion, mode)
+			}
+		}
+	}
+}
+
+func TestBuildSystemMessage_ASRCleanup_EditOnly(t *testing.T) {
+	ResetPromptsToDefaults()
+	// 改动 E:editOnly 规则3 授权 + 反例
+	for _, emotion := range []bool{true, false} {
+		msg := BuildSystemMessage(emotion, false, "edit_only")
+		if !strings.Contains(msg, "与转写模式规则4/规则5 例外对齐") {
+			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动E 对齐条款", emotion)
+		}
+		if !strings.Contains(msg, "引用原话不合并") {
+			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动E 反例", emotion)
+		}
+		if !strings.Contains(msg, "施事不同不合并") {
+			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动E 反例(施事)", emotion)
+		}
+	}
+}
+
+func TestBuildSystemMessage_ExampleNumbersUnique(t *testing.T) {
+	ResetPromptsToDefaults()
+	// 防止改动C 新增示例19 与 emotion 示例13-18 撞车,或与语言润色 1-12 重叠。
+	// 只统计"示例N -"(严格带破折号)的出现,避开正文里"示例19"字样的行内引用。
+	re := regexp.MustCompile(`示例(\d+)\s*-`)
+	for _, emotion := range []bool{true, false} {
+		for _, mode := range []string{"append", "edit", "edit_only"} {
+			var msg string
+			if mode == "append" || mode == "edit" {
+				msg = BuildSystemMessage(emotion, false, mode)
+			} else {
+				msg = BuildSystemMessage(emotion, false, "edit_only")
+			}
+			seen := map[string]int{}
+			for _, m := range re.FindAllStringSubmatch(msg, -1) {
+				seen[m[1]]++
+			}
+			for n, c := range seen {
+				if c > 1 {
+					t.Errorf("[emotion=%v mode=%s] 示例%s- 出现 %d 次,应唯一", emotion, mode, n, c)
+				}
+			}
+			if emotion && (mode == "append" || mode == "edit") {
+				// emotion 开 + append/edit:必须同时有 12 和 19,且 13-18 都在
+				for _, want := range []string{"12", "13", "14", "15", "16", "17", "18", "19"} {
+					if seen[want] == 0 {
+						t.Errorf("[emotion=true mode=%s] 缺示例%s", mode, want)
+					}
+				}
+			}
+			if !emotion && (mode == "append" || mode == "edit") {
+				// emotion 关:示例19 仍然在(它属于语言润色示例区,不属于情绪示例)
+				if seen["19"] == 0 {
+					t.Errorf("[emotion=false mode=%s] 缺示例19 (改动C 应在 emotion 关时也渲染)", mode)
+				}
+				if seen["13"] != 0 || seen["18"] != 0 {
+					t.Errorf("[emotion=false mode=%s] 情绪示例13-18 不应出现", mode)
+				}
+			}
+		}
 	}
 }
 
