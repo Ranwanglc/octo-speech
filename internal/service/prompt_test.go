@@ -284,7 +284,7 @@ func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
 			if !strings.Contains(msg, "语义冗余的实义词重复可去重合并") {
 				t.Errorf("[emotion=%v mode=%s] missing 改动A 例外条款", emotion, mode)
 			}
-			if !strings.Contains(msg, "合并三前提") && !strings.Contains(msg, "合并三前提**同时成立**") {
+			if !strings.Contains(msg, "合并三前提") {
 				t.Errorf("[emotion=%v mode=%s] missing 改动B 合并三前提", emotion, mode)
 			}
 			if !strings.Contains(msg, "同意群内最小语序整理") {
@@ -302,6 +302,17 @@ func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
 			if !strings.Contains(msg, "@Thomas.fu 创建两个子区分别跟踪解决这两个 issue") {
 				t.Errorf("[emotion=%v mode=%s] 示例19 正例文本缺失", emotion, mode)
 			}
+			// 放宽后必须出现"同一分配语义"授权口径 + 分配语义关键词"分别"/"都"/"也"
+			if !strings.Contains(msg, "同一分配语义") {
+				t.Errorf("[emotion=%v mode=%s] 规则4 缺放宽后的\"同一分配语义\"授权口径", emotion, mode)
+			}
+			if strings.Contains(msg, "同一动作(同一动词/近义动词族)") {
+				t.Errorf("[emotion=%v mode=%s] 旧\"同一动作/近义动词族\"口径未替换", emotion, mode)
+			}
+			// nit1 回归:示例19 ✅ 行不得含反斜杠双引号(raw string 里 \\\" 会原样进 prompt)
+			if strings.Contains(msg, `他刚才说\"口令就是`) {
+				t.Errorf("[emotion=%v mode=%s] 示例19 ✅ 行残留反斜杠双引号(nit1 回归)", emotion, mode)
+			}
 		}
 	}
 }
@@ -311,8 +322,11 @@ func TestBuildSystemMessage_ASRCleanup_EditOnly(t *testing.T) {
 	// 改动 E:editOnly 规则3 授权 + 反例
 	for _, emotion := range []bool{true, false} {
 		msg := BuildSystemMessage(emotion, false, "edit_only")
-		if !strings.Contains(msg, "与转写模式规则4/规则5 例外对齐") {
-			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动E 对齐条款", emotion)
+		if !strings.Contains(msg, "同一分配语义") {
+			t.Errorf("[emotion=%v] editOnly 规则3 缺 分配语义授权口径", emotion)
+		}
+		if strings.Contains(msg, "与转写模式规则4/规则5 例外对齐") {
+			t.Errorf("[emotion=%v] editOnly 规则3 仍在引用不可见的转写规则,应自洽表述", emotion)
 		}
 		if !strings.Contains(msg, "引用原话不合并") {
 			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动E 反例", emotion)
