@@ -340,6 +340,13 @@ func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
 			if !strings.Contains(msg, `受事族"这两个 issue / 链接 / 背景信息"均在同一分配语义`) {
 				t.Errorf("[emotion=%v mode=%s] 示例19 P1 判据缺 round-3 新措辞", emotion, mode)
 			}
+			// OCT-118 round 4:示例19 反例的"引号内引用原话"必须用「」包裹,防未来再回退到嵌套半角双引号(append/template 两模板同步)
+			if !strings.Contains(msg, "他刚才说「口令就是 go go go」") {
+				t.Errorf("[emotion=%v mode=%s] 示例19 反例内层引用未用「」包裹(round-4 遗漏)", emotion, mode)
+			}
+			if strings.Contains(msg, `他刚才说"口令就是 go go go""`) {
+				t.Errorf("[emotion=%v mode=%s] 示例19 反例残留三重半角双引号相邻(round-4 回归)", emotion, mode)
+			}
 		}
 	}
 }
