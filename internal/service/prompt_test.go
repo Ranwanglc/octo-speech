@@ -329,6 +329,17 @@ func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
 			if strings.Contains(msg, `他刚才说\"口令就是`) {
 				t.Errorf("[emotion=%v mode=%s] 示例19 ✅ 行残留反斜杠双引号(nit1 回归)", emotion, mode)
 			}
+			// OCT-115 round 3:规则4 前提② 括号说明必须放宽到"分配语义统辖下的并列受事族",且旧"施事和受事完全相同"必须清除
+			if !strings.Contains(msg, "受事为该分配语义统辖下的并列受事族") {
+				t.Errorf("[emotion=%v mode=%s] 规则4 前提② 缺放宽后的\"受事为该分配语义统辖下的并列受事族\"口径", emotion, mode)
+			}
+			if strings.Contains(msg, "施事和受事完全相同") {
+				t.Errorf("[emotion=%v mode=%s] 规则4 前提② 旧\"施事和受事完全相同\"口径未清除,与示例19 P1 判据自相矛盾", emotion, mode)
+			}
+			// OCT-115 round 3:示例19 P1 判据措辞必须从"均为"改成"受事族 … 均在同一分配语义 … 统辖下并列"
+			if !strings.Contains(msg, `受事族"这两个 issue / 链接 / 背景信息"均在同一分配语义`) {
+				t.Errorf("[emotion=%v mode=%s] 示例19 P1 判据缺 round-3 新措辞", emotion, mode)
+			}
 		}
 	}
 }
@@ -357,6 +368,13 @@ func TestBuildSystemMessage_ASRCleanup_EditOnly(t *testing.T) {
 		// few-shot 与 testdata E1 一致:示例10 正例首句必须与 asr_cleanup_cases.md E1 期望首句同串,防再度分叉。
 		if !strings.Contains(msg, "把变更列表分别发给产品和研发、抄送给运维和测试") {
 			t.Errorf("[emotion=%v] editOnly 示例10 正例首句与 testdata E1 分叉", emotion)
+		}
+		// OCT-115 round 3:editOnly 规则3 前提② 也必须落到放宽口径,并清除旧"施事和受事完全相同"
+		if !strings.Contains(msg, "受事为该分配语义统辖下的并列受事族") {
+			t.Errorf("[emotion=%v] editOnly 规则3 前提② 缺放宽后口径", emotion)
+		}
+		if strings.Contains(msg, "施事和受事完全相同") {
+			t.Errorf("[emotion=%v] editOnly 规则3 前提② 旧\"施事和受事完全相同\"口径未清除", emotion)
 		}
 	}
 }
