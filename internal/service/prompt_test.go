@@ -273,11 +273,13 @@ func TestBuildSystemMessage_ASRCleanup_AppendAndTemplate(t *testing.T) {
 	ResetPromptsToDefaults()
 	// v2 方案改动 A/B/D 必须同时落到 append 与 template(edit)两模板;
 	// 用 emotion 开/关两种渲染都验证一遍,防止 rule5 段被 emotion 分支吃掉。
+	// mode="append" 必须显式传参才命中 systemPromptAppendOnly(生产 GPT 引擎实跑路径);
+	// mode="edit" 无对应 case,落 switch default = systemPromptTemplate,这正是本循环要覆盖的第二个模板。
 	for _, emotion := range []bool{true, false} {
 		for _, mode := range []string{"append", "edit"} {
 			var msg string
 			if mode == "append" {
-				msg = BuildSystemMessage(emotion, false)
+				msg = BuildSystemMessage(emotion, false, "append")
 			} else {
 				msg = BuildSystemMessage(emotion, false, "edit")
 			}
@@ -445,11 +447,13 @@ func TestBuildSystemMessage_ASRCleanup_P3AnchorInAppendAndTemplate(t *testing.T)
 	ResetPromptsToDefaults()
 	// OCT-103 改动 G:no-emotion 短 prompt 下 P3 挂,补一条"不同动词族仅靠分别统辖"短正例锚点,
 	// 必须在 append 与 template(edit) 两模板都渲染,且 emotion 开/关皆在。
+	// mode="append" 必须显式传参才命中 systemPromptAppendOnly(生产 GPT 引擎实跑路径);
+	// mode="edit" 无对应 case,落 switch default = systemPromptTemplate,这正是本循环要覆盖的第二个模板。
 	for _, emotion := range []bool{true, false} {
 		for _, mode := range []string{"append", "edit"} {
 			var msg string
 			if mode == "append" {
-				msg = BuildSystemMessage(emotion, false)
+				msg = BuildSystemMessage(emotion, false, "append")
 			} else {
 				msg = BuildSystemMessage(emotion, false, "edit")
 			}
