@@ -372,9 +372,9 @@ func TestBuildSystemMessage_ASRCleanup_EditOnly(t *testing.T) {
 		if !strings.Contains(msg, "同意群内最小语序整理") {
 			t.Errorf("[emotion=%v] editOnly 规则3 缺 改动B 最小语序整理", emotion)
 		}
-		// few-shot 与 testdata E1 一致:示例10 正例首句必须与 asr_cleanup_cases.md E1 期望首句同串,防再度分叉。
+		// 示例10 正例首句锚定 E1 期望首句,防分叉。
 		if !strings.Contains(msg, "把变更列表分别发给产品和研发、抄送给运维和测试") {
-			t.Errorf("[emotion=%v] editOnly 示例10 正例首句与 testdata E1 分叉", emotion)
+			t.Errorf("[emotion=%v] editOnly 示例10 正例首句与 E1 分叉", emotion)
 		}
 		// OCT-115 round 3:editOnly 规则3 前提② 也必须落到放宽口径,并清除旧"施事和受事完全相同"
 		if !strings.Contains(msg, "受事为该分配语义统辖下的并列受事族") {
